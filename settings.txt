@@ -1,0 +1,13 @@
+OpenEdgeDir: C:\Epicor\OE102A
+EpicorDBDir: C:\Epicor\Epicor905\db
+EpicorBackupDir: C:\Epicor\Epicor905\db
+PilotDSN: pilot
+Default Company Name: BOOGEDY BOOGEDY!
+AppServerURL: AppServerDC://localhost:9433
+MfgSysAppServerURL: AppServerDC://localhost:9431
+FileRootDir: \\apollo\epicor\epicor905,C:\epicor\epicordataPilot,\\apollo\epicor\epicor905\server
+PilotDBName: EpicorPilot905
+PilotAppName: EpicorPilot905
+PilotProcName: EpicorPilot905ProcessServer
+PilotTaskName: EpicorPilot905TaskAgent
+Sleepytime: 3
