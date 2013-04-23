@@ -1,7 +1,7 @@
 #########################################################################
 #
 #
-#                Epicor Auto Pilot
+#                Epicor AutoPilot
 #
 #  Simple script to automate backing up Epicor Live &
 #  Restoring backups into Pilot.
@@ -21,7 +21,7 @@
 # * This will only work in single company environments. I do not use a multicompany
 #   environment, so I don't have reason to write this specifically for that, nor do
 #   I have the resources/time to test it. Updating for multicompany should only
-#   be a matter of updating SQL statemetns though.
+#   be a matter of updating SQL statements though.
 #
 #
 #
@@ -30,7 +30,7 @@
 #       -Jeff Johnson, Angeles Composite Technologies, Inc.
 #
 #  Credit goes to A Mercer Sisson from the EUG for writing the original
-#  WinBatch version.
+#  WinBatch version of the Pilot restore functions.
 #
 #
 #
@@ -44,11 +44,11 @@ import easygui
 import pypyodbc
 import re
 import time
-import command
 import sys
 import subprocess
+import datetime
 
-def CleanTabAnalasys(sourcefile,destfile):
+def CleanTabAnalys(sourcefile,destfile):
     f = open(sourcefile,'r')
     o = open(destfile,'w')
     linenum = 1
@@ -64,7 +64,7 @@ def CleanTabAnalasys(sourcefile,destfile):
                     break       
             else:
                 linenum = -1
-                #My RegEx Foo is weak:
+                #My RegEx Foo is weak, forgive me:
                 line = re.sub(r'([\s*]{1,25})',',',line.rstrip()) #strip spaces and replace with commas
                 line = re.sub(r',,',',',line.rstrip()) #strip double commas
                 line = re.sub(r'PUB\.','\nPUB.',line.rstrip()) #insert newlines before PUBs
@@ -103,8 +103,6 @@ class EpicorDatabase:
     def Sql(self,statement):
         self.cur = self.conn.cursor()
         self.cur.execute(statement)
-        result = self.cur.fetchall()
-        return result
 
     def  Commit(self):
         self.conn.commit()
@@ -122,9 +120,10 @@ class OpenEdgeApp:
         self.Settings = {
             'OpenEdgeDir' : r'c:\epicor\oe102a',
             'EpicorDBDir' : 'c:\\epicor\\epicor905\\db',
+            'EpicorPilotDBDir' : 'c:\\epicor\\epicor905\\db\\pilot',
             'EpicorBackupDir' : 'c:\\epicor\epicor905\\db',
             'DSN' : 'pilot',
-            'Default Company Name' : '--TEST SERVER--1',
+            'Default Company Name' : '--TEST SERVER--',
             'Database Name' : 'mfgsys',
             'AppServerURL' : 'AppServerDC://localhost:9433',
             'MfgSysAppServerURL' : 'AppServerDC://localhost:9431',
@@ -157,19 +156,20 @@ class OpenEdgeApp:
         return log.output
     
     def Restore(self,filename):
-        log = Command(self.Settings['OpenEdgeDir'] + self.Settings['ProRest'] + " " + self.Settings['EpicorDBDir'] + "\\" + self.Settings['Database Name'] + " " + filename).run()
+        #Initiate ProRest. Note the 'echo y' pipe is necessary to overwrite the existing db.
+        log = Command('echo y | ' + self.Settings['OpenEdgeDir'] + self.Settings['ProRest'] + " " + self.Settings['EpicorPilotDBDir'] + "\\" + self.Settings['Database Name'] + " " + filename).run()
         return log.output
     
     def Shutdown(self):
         log = ""
         cmdlog = Command(self.Settings['OpenEdgeDir'] + self.Settings['ASBMan'] + " -name " + self.Settings['ProcName'] + " -stop").run(); log+=cmdlog.output
-        cmdlog = Command(self.Settings['OpenEdgeDir'] + self.Settings['ASBMan'] + " -name " + self.Settings['TaskName'] + " -stop").run() + "\n"; log+=cmdlog.output
-        cmdlog = Command(self.Settings['OpenEdgeDir'] + self.Settings['ASBMan'] + " -name " + self.Settings['AppName']  + " -stop").run() + "\n"; log+=cmdlog.output
+        cmdlog = Command(self.Settings['OpenEdgeDir'] + self.Settings['ASBMan'] + " -name " + self.Settings['TaskName'] + " -stop").run(); log+="\n" + cmdlog.output
+        cmdlog = Command(self.Settings['OpenEdgeDir'] + self.Settings['ASBMan'] + " -name " + self.Settings['AppName']  + " -stop").run(); log+="\n" + cmdlog.output
         return log
 
     def ShutdownDB(self):
         log = ""
-        cmdlog = Command(self.Settings['OpenEdgeDir'] + self.Settings['DBMan'] + " -db " + self.Settings['DBName'] + " -stop").run() + "\n"; log+=cmdlog.output
+        cmdlog = Command(self.Settings['OpenEdgeDir'] + self.Settings['DBMan'] + " -db " + self.Settings['DBName'] + " -stop").run(); log+="\n" + cmdlog.output
         return log
        
     def StartupDB(self,retries):
@@ -186,12 +186,12 @@ class OpenEdgeApp:
         
     def Startup(self):
          log = ""
-         cmdlog = Command(self.Settings['OpenEdgeDir'] + self.Settings['ASBMan'] + " -name " + self.Settings['TaskName'] + " -start").run() + "\n"; log+=cmdlog.output
-         cmdlog = Command(self.Settings['OpenEdgeDir'] + self.Settings['ASBMan'] + " -name " + self.Settings['ProcName'] + " -start").run(); log+=cmdlog.output
-         cmdlog = Command(self.Settings['OpenEdgeDir'] + self.Settings['ASBMan'] + " -name " + self.Settings['AppName']  + " -start").run() + "\n"; log+=cmdlog.output
+         cmdlog = Command(self.Settings['OpenEdgeDir'] + self.Settings['ASBMan'] + " -name " + self.Settings['TaskName'] + " -start").run(); log+=cmdlog.output
+         cmdlog = Command(self.Settings['OpenEdgeDir'] + self.Settings['ASBMan'] + " -name " + self.Settings['ProcName'] + " -start").run(); log+="\n" + cmdlog.output
+         cmdlog = Command(self.Settings['OpenEdgeDir'] + self.Settings['ASBMan'] + " -name " + self.Settings['AppName']  + " -start").run(); log+="\n" + cmdlog.output
          return log
         
-PilotApp = OpenEdgeApp("settings.txt")
+
 
 def GetDSNPassword():
     msg = "Enter logon information"
@@ -209,7 +209,79 @@ def GetDSNPassword():
         if errmsg == "": break # no problems found
         fieldValues = multpasswordbox(errmsg, title, fieldNames, fieldValues)
     return fieldValues
+
+def Choice_Backup_Live():
+    rightnow = datetime.datetime.now()
+    defaultfilename =  rightnow.strftime("%B")
+    defaultfilename = defaultfilename[:3] 
     
+    if easygui.ynbox('Online Backup?') == 1:
+         ynonline = "online"
+    else:
+        ynonline = ""
+    easygui.msgbox(msg='After selecting Source,Destination & Online please wait, this can take a while and you will see no progress bar.')
+    PilotApp.Backup(
+        easygui.fileopenbox(
+            'Select database to backup',
+            default=PilotApp.Settings['EpicorDBDir']+'\\'),
+        easygui.filesavebox(
+            'Filename to backup to',
+            default=PilotApp.Settings['EpicorDBDir']+'\\'+ defaultfilename + 'live' + str(rightnow.day ) ),
+        ynonline)
+
+def Choice_Set_Params():
+    #Connect
+    usrpw = GetDSNPassword()
+    PilotDB = EpicorDatabaseClass.EpicorDatabase(PilotApp.Settings['DSN'],usrpw[0], usrpw[1] ); del usrpw
+    #Update to Pilot Settings
+    PilotDB.Sql("UPDATE pub.company set name = \'" + PilotApp.Settings['Default Company Name'] + "\'")
+    PilotDB.Sql("UPDATE pub.SysAgent set AppServerURL = \'" + PilotApp.Settings['AppServerURL'] + "\'")
+    PilotDB.Sql("UPDATE pub.SysAgent set MfgSysAppServerURL = \'" + PilotApp.Settings['MfgSysAppServerURL'] + "\'")
+    PilotDB.Sql("UPDATE pub.SysAgent set FileRootDir = \'" + PilotApp.Settings['FileRootDir'] + "\'")
+    #Remove Global Alerts / Task Scheduler
+    PilotDB.Sql("UPDATE pub.glbalert set active=0 where active=1")
+    PilotDB.Sql("UPDATE pub.chglogGA set SendEmail=0 where SendEmail=1")
+    PilotDB.Sql("DELETE from pub.SysAgentTask")
+    #Commit changes and close connection
+    PilotDB.Commit()
+    PilotDB.Close()
+
+def Choice_Restore_Pilot():
+    #Restore From File
+    RestoreFile = easygui.fileopenbox("Select File To Restore From","Select File To Restore From",PilotApp.Settings['EpicorBackupDir'])
+    usrpw = GetDSNPassword()
+    rightnow = datetime.datetime.now()
+    compname =  rightnow.strftime("%B")
+    compname = compname[:3]
+    compname = '--- TEST ' + compname + str(rightnow.day) + ' ---'
+    compname = easygui.enterbox(msg='New Pilot Company Name?',default=compname)
+    easygui.msgbox(msg='This will take some time, please wait until you see the main app dialog.')
+    #Shutdown Pilot
+    PilotApp.Shutdown()
+    PilotApp.ShutdownDB()
+    PilotApp.Restore(RestoreFile)
+    PilotApp.StartupDB(5) #Number of retries
+    #Connect
+    PilotDB = EpicorDatabase(PilotApp.Settings['DSN'],usrpw[0], usrpw[1] );del usrpw
+    #Update to Pilot Settings
+    PilotDB.Sql("UPDATE pub.company set name = \'" + compname + "\'")
+    PilotDB.Sql("UPDATE pub.SysAgent set AppServerURL = \'" + PilotApp.Settings['AppServerURL'] + "\'")
+    PilotDB.Sql("UPDATE pub.SysAgent set MfgSysAppServerURL = \'" + PilotApp.Settings['MfgSysAppServerURL'] + "\'")
+    PilotDB.Sql("UPDATE pub.SysAgent set FileRootDir = \'" + PilotApp.Settings['FileRootDir'] + "\'")
+    #Remove Global Alerts / Task Scheduler
+    PilotDB.Sql("UPDATE pub.glbalert set active=0 where active=1")
+    PilotDB.Sql("UPDATE pub.chglogGA set SendEmail=0 where SendEmail=1")
+    PilotDB.Sql("DELETE from pub.SysAgentTask")
+    #Commit changes and close connection
+    PilotDB.Commit()
+    PilotDB.Close()
+    PilotApp.Startup()
+   
+    
+#------------------------ BEGIN ----------------------
+
+PilotApp = OpenEdgeApp("settings.txt")
+
 while True:
     ServerSettingsTitles = ["Company Name:", "Password"]
     ServerSettings = [PilotApp.Settings['Default Company Name'],"***"]
@@ -218,57 +290,23 @@ while True:
                                                       'Display Default Settings',
                                                       'Test DB Connection',
                                                       'SetParams',
+                                                      'Run Tabanalys',
                                                       'Quit'],image='epicor.gif')
     if choice == 'Backup LIVE now':
-        print 'Not implemented'
-        #--------BACKUP LIVE----------
-    elif choice == 'SetParams':
-        #Connect
-        usrpw = GetDSNPassword()
-        PilotDB = EpicorDatabaseClass.EpicorDatabase(PilotApp.Settings['DSN'],usrpw[0], usrpw[1] ); del usrpw
-        #Update to Pilot Settings
-        PilotDB.Sql("UPDATE pub.company set name = \'" + PilotApp.Settings['Default Company Name'] + "\'")
-        PilotDB.Sql("UPDATE pub.SysAgent set AppServerURL = \'" + PilotApp.Settings['AppServerURL'] + "\'")
-        PilotDB.Sql("UPDATE pub.SysAgent set MfgSysAppServerURL = \'" + PilotApp.Settings['MfgSysAppServerURL'] + "\'")
-        PilotDB.Sql("UPDATE pub.SysAgent set FileRootDir = \'" + PilotApp.Settings['FileRootDir'] + "\'")
-        #Remove Global Alerts / Task Scheduler
-        PilotDB.Sql("UPDATE pub.glbalert set active=0 where active=1")
-        PilotDB.Sql("UPDATE pub.chglogGA set SendEmail=0 where SendEmail=1")
-        PilotDB.Sql("DELETE from pub.SysAgentTask")
-        #Commit changes and close connection
-        PilotDB.Commit()
-        PilotDB.Close()
-    elif choice == 'Restore PILOT from backup':
-        #Shutdown Pilot
-        PilotApp.Shutdown()
-        PilotApp.ShutdownDB()
-        #Restore From File
-        RestoreFile = easygui.fileopenbox("Select File To Restore From","Select File To Restore From",PilotApp.Settings['EpicorBackupDir'])
-        PilotApp.Restore(RestoreFile)
-        PilotApp.StartupDB(5) #Number of retries
-        #Connect
-        usrpw = GetDSNPassword()
-        PilotDB.Connect(usrpw["User ID"],usrpw["Password"]); del usrpw
-        #Update to Pilot Settings
-        PilotDB.Sql("UPDATE pub.company set name = \'" + PilotApp.Settings['Default Company Name'] + "\'")
-        PilotDB.Sql("UPDATE pub.SysAgent set AppServerURL = \'" + PilotApp.Settings['AppServerURL'] + "\'")
-        PilotDB.Sql("UPDATE pub.SysAgent set MfgSysAppServerURL = \'" + PilotApp.Settings['MfgSysAppServerURL'] + "\'")
-        PilotDB.Sql("UPDATE pub.SysAgent set FileRootDir = \'" + PilotApp.Settings['FileRootDir'] + "\'")
-        #Remove Global Alerts / Task Scheduler
-        PilotDB.Sql("UPDATE pub.glbalert set active=0 where active=1")
-        PilotDB.Sql("UPDATE pub.chglogGA set SendEmail=0 where SendEmail=1")
-        PilotDB.Sql("DELETE from pub.SysAgentTask")
-        #Commit changes and close connection
-        PilotDB.Commit()
-        PilotDB.Close()
-        PilotApp.Startup()
+        Choice_Backup_Live()
         
-     # Need to add func to delete all mfgsys* in pilot dir, otherwise restore fails/prompts for yn
+    elif choice == 'SetParams':
+        Choice_Set_Params()
+        
+    elif choice == 'Restore PILOT from backup':
+        Choice_Restore_Pilot()
+        
     elif choice == 'Display Default Settings':
+        #TODO
         print 'Not Implemented'
-        #Disp
+
     elif choice == 'Test DB Connection':
-         #Connect
+        #Connect
         usrpw = GetDSNPassword()
         PilotDB = EpicorDatabase(PilotApp.Settings['DSN'],usrpw[0], usrpw[1] )
         CurComp = PilotDB.Sql("SELECT name FROM pub.company")
@@ -276,10 +314,23 @@ while True:
         easygui.msgbox("Connected to: " + str(CurComp[0]))
         PilotDB.Rollback()
         PilotDB.Close()
+    elif choice ==  'Run Tabanalys':
+        #Tabanalys
+        now = datetime.datetime.now()
+        TabAnalysFile = PilotApp.Settings['EpicorDBDir'] + '\\TabAnalys.tmp'
+        TabCSVFile = PilotApp.Settings['EpicorDBDir'] + '\\TabAnalys ' + str(now.year) + '-' + str(now.month) + '-' + str(now.day) + '.csv'
+        easygui.msgbox('This may take a few, please be patient.')
+        Command(PilotApp.Settings['OpenEdgeDir'] + '\\bin\\proutil.bat ' + PilotApp.Settings['EpicorDBDir'] + '\\' + PilotApp.Settings['Database Name'] + ' -C tabanalys > ' + TabAnalysFile).run()
+        #print PilotApp.Settings['OpenEdgeDir'] + '\\bin\\proutil.bat ' + PilotApp.Settings['EpicorDBDir'] + '\\' + PilotApp.Settings['Database Name'] + ' -C tabanalys > ' + TabAnalysFile
+        tabtmp = open(TabAnalysFile)
+        tabcontents = tabtmp.readlines()
+        easygui.codebox('Contents','Contents',tabcontents)
+        tabtmp.close()
+        CleanTabAnalys(TabAnalysFile,TabCSVFile)
+        easygui.msgbox('Saved csv (w/ headers) file to ' + TabCSVFile)
     elif choice == 'Quit':
-        print 'Not Implemented'
-        #Quit
         break
+       #Quit
     else:
         print "Not Implemented"
         break

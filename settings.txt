@@ -1,5 +1,6 @@
 OpenEdgeDir: C:\Epicor\OE102A
 EpicorDBDir: C:\Epicor\Epicor905\db
+EpicorPilotDBDir: C:\Epicor\Epicor905\db\pilot
 EpicorBackupDir: C:\Epicor\Epicor905\db
 PilotDSN: pilot
 Default Company Name: BOOGEDY BOOGEDY!
