@@ -3,7 +3,7 @@ EpicorDBDir: C:\Epicor\Epicor905\db
 EpicorPilotDBDir: C:\Epicor\Epicor905\db\pilot
 EpicorBackupDir: C:\Epicor\Epicor905\db
 PilotDSN: pilot
-Default Company Name: BOOGEDY BOOGEDY!
+Default Company Name: --PILOT DB--
 AppServerURL: AppServerDC://localhost:9433
 MfgSysAppServerURL: AppServerDC://localhost:9431
 FileRootDir: \\apollo\epicor\epicor905,C:\epicor\epicordataPilot,\\apollo\epicor\epicor905\server
