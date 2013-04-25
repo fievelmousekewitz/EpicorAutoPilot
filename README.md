@@ -29,4 +29,6 @@ Known Issue: When installing this on a 64bit server the odbc drivers included in
 
 ODBC Driver must be set to Serializable connection type.
 
+###YOU MUST CHANGE THE PATHS AND PORTS IN THE SETTINGS.TXT FILE TO FIT YOUR ENVIRONMENT.
+
 Do whatever you like with this script. Clean it up, share it with friends, whatever. Just don't sell it; Hire me instead. :)
