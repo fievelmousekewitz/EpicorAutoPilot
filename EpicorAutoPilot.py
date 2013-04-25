@@ -15,13 +15,12 @@
 #  it. Misconfigured, this script could do some very bad things.
 #
 #
-# * NONE of these settings should EVER directly reference your live environment,
+# * NONE of the Pilot settings should EVER directly reference your live environment,
 #   OR any DSN's pointing to your live environment. EVER.
 #
 # * This will only work in single company environments. I do not use a multicompany
 #   environment, so I don't have reason to write this specifically for that, nor do
-#   I have the resources/time to test it. Updating for multicompany should only
-#   be a matter of updating SQL statements though.
+#   I have the resources/time to test it. 
 #
 #
 #
@@ -30,7 +29,7 @@
 #       -Jeff Johnson, Angeles Composite Technologies, Inc.
 #
 #  Credit goes to A Mercer Sisson from the EUG for writing the original
-#  WinBatch version of the Pilot restore functions.
+#  WinBatch version of the Pilot restore process.
 #
 #
 #
@@ -119,23 +118,23 @@ class OpenEdgeApp:
         #First load defaults:
         self.Settings = {
             'OpenEdgeDir' : r'c:\epicor\oe102a',
-            'EpicorDBDir' : 'c:\\epicor\\epicor905\\db',
-            'EpicorPilotDBDir' : 'c:\\epicor\\epicor905\\db\\pilot',
-            'EpicorBackupDir' : 'c:\\epicor\epicor905\\db',
+            'EpicorDBDir' : r'c:\epicor\epicor905\\db',
+            'EpicorPilotDBDir' : r'c:\epicor\epicor905\db\pilot',
+            'EpicorBackupDir' : r'c:\\epicor\epicor905\\db',
             'DSN' : 'pilot',
             'Default Company Name' : '--TEST SERVER--',
             'Database Name' : 'mfgsys',
-            'AppServerURL' : 'AppServerDC://localhost:9433',
-            'MfgSysAppServerURL' : 'AppServerDC://localhost:9431',
-            'FileRootDir' : '\\apollo\epicor\epicor905,C:\epicor\epicordataPilot,\\apollo\epicor\epicor905\server',
+            'AppServerURL' : r'AppServerDC://localhost:9433',
+            'MfgSysAppServerURL' : r'AppServerDC://localhost:9431',
+            'FileRootDir' : r'\\apollo\epicor\epicor905,C:\epicor\epicordataPilot,\\apollo\epicor\epicor905\server',
             'DBName' : 'EpicorPilot905',
             'AppName' : 'EpicorPilot905',
             'ProcName' : 'EpicorPilot905ProcessServer',
             'TaskName' : 'EpicorPilot905TaskAgent',
-            'ProBkup' : '\\bin\\probkup.bat',
-            'ProRest' : '\\bin\\prorest.bat',
-            'ASBMan' : '\\bin\\asbman.bat',
-            'DBMan' : '\\bin\\dbman.bat',
+            'ProBkup' : r'\bin\probkup.bat',
+            'ProRest' : r'\bin\prorest.bat',
+            'ASBMan' : r'\bin\asbman.bat',
+            'DBMan' : r'\bin\dbman.bat',
             'Sleepytime' : '3'
             }
         #Now attempt to load from file:
@@ -148,8 +147,8 @@ class OpenEdgeApp:
         #Settings file must retain 'SettingName: Value' format
         SettingsFile = open(filename, "r")
         for line in SettingsFile:
-            linetranslate = re.match(r'(.*):\s(.*)',line,re.I) #Regex, split everything on the left of : to group1, everything to the right of : to group2
-            self.Settings[linetranslate.group(1)] = linetranslate.group(2) #this is hilariously sloppy
+            linetranslate = re.match(r'(.*):\s(.*)',line,re.I) 
+            self.Settings[linetranslate.group(1)] = linetranslate.group(2) 
 
     def Backup(self,source,target,online): #online = "" or "online"
         log = Command(self.Settings['OpenEdgeDir'] + self.Settings['ProBkup'] + " " + online + " " + source + " " + target).run()
@@ -191,8 +190,6 @@ class OpenEdgeApp:
          cmdlog = Command(self.Settings['OpenEdgeDir'] + self.Settings['ASBMan'] + " -name " + self.Settings['AppName']  + " -start").run(); log+="\n" + cmdlog.output
          return log
         
-
-
 def GetDSNPassword():
     msg = "Enter logon information"
     title = "DSN Info"
@@ -219,7 +216,7 @@ def Choice_Backup_Live():
          ynonline = "online"
     else:
         ynonline = ""
-    easygui.msgbox(msg='After selecting Source,Destination & Online please wait, this can take a while and you will see no progress bar.')
+    easygui.msgbox(msg='After selecting Source, Destination & Online please wait, this can take a while and you will see no progress bar.')
     PilotApp.Backup(
         easygui.fileopenbox(
             'Select database to backup',
@@ -234,7 +231,8 @@ def Choice_Set_Params():
     usrpw = GetDSNPassword()
     PilotDB = EpicorDatabaseClass.EpicorDatabase(PilotApp.Settings['DSN'],usrpw[0], usrpw[1] ); del usrpw
     #Update to Pilot Settings
-    PilotDB.Sql("UPDATE pub.company set name = \'" + PilotApp.Settings['Default Company Name'] + "\'")
+    compname = easygui.enterbox(msg='New Pilot Company Name?',default=PilotApp.Settings['Default Company Name'])
+    PilotDB.Sql("UPDATE pub.company set name = \'" +compname + "\'")
     PilotDB.Sql("UPDATE pub.SysAgent set AppServerURL = \'" + PilotApp.Settings['AppServerURL'] + "\'")
     PilotDB.Sql("UPDATE pub.SysAgent set MfgSysAppServerURL = \'" + PilotApp.Settings['MfgSysAppServerURL'] + "\'")
     PilotDB.Sql("UPDATE pub.SysAgent set FileRootDir = \'" + PilotApp.Settings['FileRootDir'] + "\'")
@@ -261,7 +259,7 @@ def Choice_Restore_Pilot():
     PilotApp.ShutdownDB()
     PilotApp.Restore(RestoreFile)
     PilotApp.StartupDB(5) #Number of retries
-    #Connect
+    #Connect to db
     PilotDB = EpicorDatabase(PilotApp.Settings['DSN'],usrpw[0], usrpw[1] );del usrpw
     #Update to Pilot Settings
     PilotDB.Sql("UPDATE pub.company set name = \'" + compname + "\'")
@@ -277,6 +275,30 @@ def Choice_Restore_Pilot():
     PilotDB.Close()
     PilotApp.Startup()
    
+def Choice_Test_Connection():
+    #Connect
+    usrpw = GetDSNPassword()
+    PilotDB = EpicorDatabase(PilotApp.Settings['DSN'],usrpw[0], usrpw[1] )
+    CurComp = PilotDB.Sql("SELECT name FROM pub.company")
+    print CurComp[0]
+    easygui.msgbox("Connected to: " + str(CurComp[0]))
+    PilotDB.Rollback()
+    PilotDB.Close()
+
+def Choice_Run_Tabanalys():
+    #Run Tabanalys and clean into CSV file
+    now = datetime.datetime.now()
+    TabAnalysFile = PilotApp.Settings['EpicorDBDir'] + r'\TabAnalys.tmp'
+    TabCSVFile = PilotApp.Settings['EpicorDBDir'] + r'\TabAnalys ' + str(now.year) + '-' + str(now.month) + '-' + str(now.day) + '.csv'
+    easygui.msgbox('This may take a few, please be patient.')
+    Command(PilotApp.Settings['OpenEdgeDir'] + r'\bin\proutil.bat ' + PilotApp.Settings['EpicorDBDir'] + '\\' + PilotApp.Settings['Database Name'] + ' -C tabanalys > ' + TabAnalysFile).run()
+    #print PilotApp.Settings['OpenEdgeDir'] + '\\bin\\proutil.bat ' + PilotApp.Settings['EpicorDBDir'] + '\\' + PilotApp.Settings['Database Name'] + ' -C tabanalys > ' + TabAnalysFile
+    tabtmp = open(TabAnalysFile)
+    tabcontents = tabtmp.readlines()
+    easygui.codebox('Contents','Contents',tabcontents)
+    tabtmp.close()
+    CleanTabAnalys(TabAnalysFile,TabCSVFile)
+    easygui.msgbox('Saved csv (w/ headers) file to ' + TabCSVFile)
     
 #------------------------ BEGIN ----------------------
 
@@ -306,28 +328,11 @@ while True:
         print 'Not Implemented'
 
     elif choice == 'Test DB Connection':
-        #Connect
-        usrpw = GetDSNPassword()
-        PilotDB = EpicorDatabase(PilotApp.Settings['DSN'],usrpw[0], usrpw[1] )
-        CurComp = PilotDB.Sql("SELECT name FROM pub.company")
-        print CurComp[0]
-        easygui.msgbox("Connected to: " + str(CurComp[0]))
-        PilotDB.Rollback()
-        PilotDB.Close()
+        Choice_Test_Connection()
+        
     elif choice ==  'Run Tabanalys':
-        #Tabanalys
-        now = datetime.datetime.now()
-        TabAnalysFile = PilotApp.Settings['EpicorDBDir'] + '\\TabAnalys.tmp'
-        TabCSVFile = PilotApp.Settings['EpicorDBDir'] + '\\TabAnalys ' + str(now.year) + '-' + str(now.month) + '-' + str(now.day) + '.csv'
-        easygui.msgbox('This may take a few, please be patient.')
-        Command(PilotApp.Settings['OpenEdgeDir'] + '\\bin\\proutil.bat ' + PilotApp.Settings['EpicorDBDir'] + '\\' + PilotApp.Settings['Database Name'] + ' -C tabanalys > ' + TabAnalysFile).run()
-        #print PilotApp.Settings['OpenEdgeDir'] + '\\bin\\proutil.bat ' + PilotApp.Settings['EpicorDBDir'] + '\\' + PilotApp.Settings['Database Name'] + ' -C tabanalys > ' + TabAnalysFile
-        tabtmp = open(TabAnalysFile)
-        tabcontents = tabtmp.readlines()
-        easygui.codebox('Contents','Contents',tabcontents)
-        tabtmp.close()
-        CleanTabAnalys(TabAnalysFile,TabCSVFile)
-        easygui.msgbox('Saved csv (w/ headers) file to ' + TabCSVFile)
+        Choice_Run_Tabanalys()
+        
     elif choice == 'Quit':
         break
        #Quit
